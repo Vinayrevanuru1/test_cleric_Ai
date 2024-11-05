@@ -28,9 +28,7 @@ except Exception as e:
 # Attempt to import OpenAI and check API key
 try:
     import openai
-    import os
-    # Ensure the OpenAI API key is available
-    openai.api_key = os.getenv("OPENAI_API_KEY") # Replace with actual API key or environment variable
+    openai.api_key = "YOUR_OPENAI_API_KEY"  # Replace with actual API key or environment variable
     logging.info("OpenAI client initialized successfully.")
 except ImportError:
     openai = None
@@ -49,7 +47,6 @@ def generate_kubernetes_command(query):
     if not openai:
         logging.error("OpenAI client is not initialized.")
         return None
-      
 
     prompt = f"""
     You are an AI assistant skilled in Kubernetes and Python. Your task is to generate a single line of Python code
@@ -76,7 +73,59 @@ def generate_kubernetes_command(query):
         logging.error(f"Error generating Kubernetes command: {str(e)}")
         return None
 
-# Endpoint to test command generation and execution
+# Function to execute the generated Kubernetes command
+def execute_generated_command(command):
+    if not command:
+        logging.error("No command to execute.")
+        return "No command generated."
+
+    local_vars = {}
+    command = command.replace("```python", "").replace("```", "").strip()
+    logging.debug(f"Executing command: {command}")
+
+    try:
+        exec(command, globals(), local_vars)
+        result = local_vars.get('result', "No result returned")
+        logging.debug(f"Execution result: {result}")
+        return result
+    except AttributeError as e:
+        logging.error(f"Attribute error during command execution: {str(e)}")
+        return "Kubernetes client method not supported on Minikube."
+    except Exception as e:
+        logging.error(f"Execution error: {str(e)}")
+        return f"Error executing command: {str(e)}"
+
+# Function to format the result using OpenAI
+def format_result_with_gpt(query, result):
+    if not openai:
+        logging.error("OpenAI client is not initialized.")
+        return "Error: OpenAI client not available."
+
+    prompt = f"""
+    You are an AI assistant skilled in summarizing technical data. Given the question: '{query}' and the raw result: '{result}',
+    provide only the direct answer without any metadata, unique identifiers, or extra formatting. For example, return 'mongodb' instead of 'mongodb-56c598c8fc'.
+    Return only the concise and relevant answer that directly addresses the question.
+    """
+
+    try:
+        logging.info(f"Formatting result for query: {query}")
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are an AI assistant skilled in summarizing technical data concisely."},
+                {"role": "user", "content": prompt.strip()}
+            ],
+            max_tokens=20,
+            temperature=0.3,
+        )
+        answer = response.choices[0].message['content'].strip()
+        logging.info(f"Formatted answer: {answer}")
+        return answer
+    except Exception as e:
+        logging.error(f"Error formatting result with GPT: {str(e)}")
+        return "Error formatting answer."
+
+# Main endpoint to handle queries
 @app.route('/query', methods=['POST'])
 def create_query():
     try:
@@ -99,15 +148,20 @@ def create_query():
             logging.error("Failed to generate command.")
             return jsonify({"error": "Failed to generate command"}), 500
 
-        # Log the generated command (for debugging)
-        logging.info(f"Generated command: {command}")
+        # Step 2: Execute the command
+        raw_result = execute_generated_command(command)
+        if "Error" in raw_result:
+            logging.error("Error in command execution.")
+            return jsonify({"error": raw_result}), 500
 
-        # Placeholder answer until we add execution
-        answer = f"Command generated: {command}"
+        # Step 3: Format the result
+        answer = format_result_with_gpt(query, raw_result)
+        if "Error" in answer:
+            logging.error("Error in formatting result.")
+            return jsonify({"error": answer}), 500
 
-        # Create and return the response
         response = QueryResponse(query=query, answer=answer)
-        logging.info(f"Response created: {response.dict()}")
+        logging.info(f"Final response created: {response.dict()}")
         return jsonify(response.dict())
     
     except ValidationError as e:
@@ -115,21 +169,6 @@ def create_query():
         return jsonify({"error": e.errors()}), 400
     except Exception as e:
         logging.error(f"Error processing query: {str(e)}")
-        return jsonify({"error": str(e)}), 500
-
-# Test Kubernetes connection endpoint
-@app.route('/test_kube_connection', methods=['GET'])
-def test_kube_connection():
-    if not v1:
-        logging.error("Kubernetes client is not initialized.")
-        return jsonify({"error": "Kubernetes client not initialized"}), 500
-
-    try:
-        namespaces = [ns.metadata.name for ns in v1.list_namespace().items]
-        logging.info("Successfully retrieved namespaces from Kubernetes.")
-        return jsonify({"namespaces": namespaces})
-    except Exception as e:
-        logging.error(f"Failed to retrieve namespaces: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 # Start Flask server
