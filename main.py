@@ -59,7 +59,7 @@ def generate_kubernetes_command(query):
     try:
         logging.info(f"Generating Kubernetes command for query: {query}")
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an AI assistant skilled in Kubernetes and Python."},
                 {"role": "user", "content": prompt.strip()}
