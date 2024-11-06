@@ -2,6 +2,7 @@ import logging
 from flask import Flask, request, jsonify
 from pydantic import BaseModel, ValidationError
 import os
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, 
                     format='%(asctime)s %(levelname)s - %(message)s',
@@ -28,8 +29,7 @@ except Exception as e:
 # Attempt to import OpenAI and check API key
 try:
     import openai
-    # Ensure the OpenAI API key is availab
-    openai.api_key = os.getenv("OPENAI_API_KEY")# Replace with actual API key or environment variable
+    openai.api_key = os.getenv("OPENAI_API_KEY")
     logging.info("OpenAI client initialized successfully.")
 except ImportError:
     openai = None
@@ -45,36 +45,75 @@ class QueryResponse(BaseModel):
 
 # Function to generate Kubernetes command using OpenAI
 def generate_kubernetes_command(query):
-    if not openai:
-        logging.error("OpenAI client is not initialized.")
-        return None
-
     prompt = f"""
     You are an AI assistant skilled in Kubernetes and Python. Your task is to generate a single line of Python code
     to answer specific Kubernetes-related questions for a Minikube setup using the Kubernetes client library (v1 client).
-    Given the question: '{query}', generate a single line of code that uses the pre-defined Kubernetes client 'v1'
-    and directly answers the question, storing the output in a variable 'result'.
+
+    Please carefully consider the question provided in each case. The command you generate should:
+    - Only read data (performing a read-only action) without modifying any Kubernetes resources.
+    - Store the relevant answer directly in the variable 'result' as a list or string, with no additional metadata or formatting.
+    - Avoid using any unique identifiers or unnecessary details in the response. For instance, use concise names like "mongodb" instead of "mongodb-123456".
+    - Ensure compatibility with the v1 client in Python and Minikube clusters. 
+
+    Given the question: '{query}', generate a single line of code that:
+    - Uses the pre-defined Kubernetes client 'v1'.
+    - Answers the question concisely and directly, storing only the required information in the 'result' variable.
+    - Does not include any code fences, such as ```python or ```.
+
+    Remember, only use read operations and return a minimal and direct answer.
     """
+    
+    logging.info(f"Prompt for command generation: {prompt.strip()}")
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are an AI assistant skilled in Kubernetes and Python."},
+            {"role": "user", "content": prompt.strip()}
+        ],
+        max_tokens=150,
+        temperature=0.3,
+    )
+    
+    command = response.choices[0].message['content'].strip()
+    logging.info(f"Generated command: {command}")
+    return command
+
+def execute_generated_command(command):
+    local_vars = {}
+    command = command.replace("```python", "").replace("```", "").strip()
+    logging.debug(f"Executing command: {command}")
 
     try:
-        logging.info(f"Generating Kubernetes command for query: {query}")
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are an AI assistant skilled in Kubernetes and Python."},
-                {"role": "user", "content": prompt.strip()}
-            ],
-            max_tokens=150,
-            temperature=0.3,
-        )
-        command = response.choices[0].message['content'].strip()
-        logging.info(f"Generated command: {command}")
-        return command
+        exec(command, globals(), local_vars)
+        result = local_vars.get('result', "No result returned")
+        logging.debug(f"Execution result: {result}")
+        return result
     except Exception as e:
-        logging.error(f"Error generating Kubernetes command: {str(e)}")
-        return None
+        logging.error(f"Execution error: {str(e)}")
+        return f"Error executing command: {str(e)}"
 
-# Endpoint to test command generation and execution
+def format_result_with_gpt(query, result):
+    prompt = f"""
+    You are an AI assistant skilled in summarizing technical data. Given the question: '{query}' and the raw result: '{result}',
+    provide only the direct answer without any metadata, unique identifiers, or extra formatting. 
+    Return only the concise and relevant answer that directly addresses the question."""
+    
+    logging.debug(f"Prompt for result formatting: {prompt.strip()}")
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": "You are an AI assistant skilled in summarizing technical data concisely."},
+            {"role": "user", "content": prompt.strip()}
+        ],
+        max_tokens=20,
+        temperature=0.3,
+    )
+    
+    answer = response.choices[0].message['content'].strip()
+    logging.debug(f"Formatted answer: {answer}")
+    return answer
+
 @app.route('/query', methods=['POST'])
 def create_query():
     try:
@@ -97,11 +136,11 @@ def create_query():
             logging.error("Failed to generate command.")
             return jsonify({"error": "Failed to generate command"}), 500
 
-        # Log the generated command (for debugging)
-        logging.info(f"Generated command: {command}")
+        # Step 2: Execute the generated command
+        result = execute_generated_command(command)
 
-        # Placeholder answer until we add execution
-        answer = f"Command generated: {command}"
+        # Step 3: Format the result using GPT
+        answer = format_result_with_gpt(query, result)
 
         # Create and return the response
         response = QueryResponse(query=query, answer=answer)
