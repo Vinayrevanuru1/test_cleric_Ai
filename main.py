@@ -28,7 +28,7 @@ except Exception as e:
 # Attempt to import OpenAI and check API key
 try:
     import openai
-    openai.api_key = "YOUR_OPENAI_API_KEY"  # Replace with actual API key or environment variable
+    openai.api_key = os.getenv("OPENAI_API_KEY")
     logging.info("OpenAI client initialized successfully.")
 except ImportError:
     openai = None
