@@ -1,3 +1,4 @@
+import os
 import logging
 from flask import Flask, request, jsonify
 from pydantic import BaseModel, ValidationError
@@ -25,11 +26,14 @@ except Exception as e:
     v1 = None
     logging.error(f"Failed to load Kubernetes configuration: {str(e)}")
 
-# Attempt to import OpenAI and check API key
+# Attempt to import OpenAI and retrieve the API key from environment variables
 try:
     import openai
     openai.api_key = os.getenv("OPENAI_API_KEY")
-    logging.info("OpenAI client initialized successfully.")
+    if openai.api_key:
+        logging.info("OpenAI client initialized successfully.")
+    else:
+        logging.error("OpenAI API key is missing. Set the 'OPENAI_API_KEY' environment variable.")
 except ImportError:
     openai = None
     logging.error("OpenAI module not found. Ensure 'openai' package is installed.")
@@ -58,7 +62,7 @@ def generate_kubernetes_command(query):
     try:
         logging.info(f"Generating Kubernetes command for query: {query}")
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an AI assistant skilled in Kubernetes and Python."},
                 {"role": "user", "content": prompt.strip()}
@@ -110,7 +114,7 @@ def format_result_with_gpt(query, result):
     try:
         logging.info(f"Formatting result for query: {query}")
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are an AI assistant skilled in summarizing technical data concisely."},
                 {"role": "user", "content": prompt.strip()}
