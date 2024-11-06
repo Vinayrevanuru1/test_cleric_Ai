@@ -62,7 +62,7 @@ def generate_kubernetes_command(query):
     try:
         logging.info(f"Generating Kubernetes command for query: {query}")
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model="gpt-4",  # Corrected model name
             messages=[
                 {"role": "system", "content": "You are an AI assistant skilled in Kubernetes and Python."},
                 {"role": "user", "content": prompt.strip()}
@@ -114,7 +114,7 @@ def format_result_with_gpt(query, result):
     try:
         logging.info(f"Formatting result for query: {query}")
         response = openai.ChatCompletion.create(
-            model="gpt-4o",
+            model="gpt-4",  # Corrected model name
             messages=[
                 {"role": "system", "content": "You are an AI assistant skilled in summarizing technical data concisely."},
                 {"role": "user", "content": prompt.strip()}
