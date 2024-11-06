@@ -46,21 +46,17 @@ class QueryResponse(BaseModel):
 # Function to generate Kubernetes command using OpenAI
 def generate_kubernetes_command(query):
     prompt = f"""
-    You are an AI assistant skilled in Kubernetes and Python. Your task is to generate a single line of Python code
-    to answer specific Kubernetes-related questions for a Minikube setup using the Kubernetes client library (v1 client).
+   You are an AI assistant skilled in Kubernetes and Python. Your task is to generate Python code that answers specific Kubernetes-related questions using the Kubernetes client library (v1 client) for a Minikube setup. 
 
-    Please carefully consider the question provided in each case. The command you generate should:
-    - Only read data (performing a read-only action) without modifying any Kubernetes resources.
-    - Store the relevant answer directly in the variable 'result' as a list or string, with no additional metadata or formatting.
-    - Avoid using any unique identifiers or unnecessary details in the response. For instance, use concise names like "mongodb" instead of "mongodb-123456".
-    - Ensure compatibility with the v1 client in Python and Minikube clusters. 
+For each query, please generate code that:
+- Directly retrieves the relevant data to answer the question, filtering out any unnecessary metadata, identifiers, or redundant information.
+- Ensures that only the essential data for the query is returned in the variable 'result' as a list, dictionary, or string, with concise formatting.
+- Uses read-only operations and respects the Minikube environment compatibility.
 
-    Given the question: '{query}', generate a single line of code that:
-    - Uses the pre-defined Kubernetes client 'v1'.
-    - Answers the question concisely and directly, storing only the required information in the 'result' variable.
-    - Does not include any code fences, such as ```python or ```.
-
-    Remember, only use read operations and return a minimal and direct answer.
+Given the question: '{query}', produce a solution that:
+- Uses the 'v1' Kubernetes client for interaction.
+- Retrieves only the minimal and relevant data needed to answer, removing or filtering any extraneous data.
+- Does not include code fences (e.g., ```python)
     """
     
     logging.info(f"Prompt for command generation: {prompt.strip()}")
