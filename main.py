@@ -59,7 +59,7 @@ Given the question: '{query}', produce a solution that:
 - Does not include code fences (e.g., ```python)
     """
     
-    logging.info(f"Prompt for command generation: {prompt.strip()}")
+    # logging.info(f"Prompt for command generation: {prompt.strip()}")
     response = openai.ChatCompletion.create(
         model="gpt-4o",
         messages=[
@@ -77,7 +77,7 @@ Given the question: '{query}', produce a solution that:
 def execute_generated_command(command):
     local_vars = {}
     command = command.replace("```python", "").replace("```", "").strip()
-    logging.debug(f"Executing command: {command}")
+    # logging.debug(f"Executing command: {command}")
 
     try:
         exec(command, globals(), local_vars)
@@ -94,7 +94,7 @@ def format_result_with_gpt(query, result):
     provide only the direct answer without any metadata, unique identifiers, or extra formatting. 
     Return only the concise and relevant answer that directly addresses the question."""
     
-    logging.debug(f"Prompt for result formatting: {prompt.strip()}")
+    # logging.debug(f"Prompt for result formatting: {prompt.strip()}")
 
     response = openai.ChatCompletion.create(
         model="gpt-4o",
