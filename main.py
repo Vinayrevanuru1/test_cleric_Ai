@@ -1,7 +1,7 @@
 import logging
 from flask import Flask, request, jsonify
 from pydantic import BaseModel, ValidationError
-
+import os
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, 
                     format='%(asctime)s %(levelname)s - %(message)s',
@@ -28,8 +28,8 @@ except Exception as e:
 # Attempt to import OpenAI and check API key
 try:
     import openai
-    # Ensure the OpenAI API key is available
-    openai.api_key = "YOUR_OPENAI_API_KEY"  # Replace with actual API key or environment variable
+    # Ensure the OpenAI API key is availab
+    openai.api_key = os.getenv("OPENAI_API_KEY")# Replace with actual API key or environment variable
     logging.info("OpenAI client initialized successfully.")
 except ImportError:
     openai = None
